@@ -1,7 +1,7 @@
 import functools
 
-__version__ = '0.1'
-__all__ = 'Plugin Injector inject'.split()
+__version__ = "0.1"
+__all__ = "Plugin Injector inject".split()
 
 import inspect
 import sys
@@ -22,6 +22,10 @@ class _InjectionPoint(object):
         self.parameters = parameters or ()
         self.config = config or {}
 
+    def __eq__(self, other):
+        if isinstance(other, _InjectionPoint):
+            return self.__dict__ == other.__dict__
+        return False
 
 class _ProviderCache(dict):
     """ A self-filling cache for :meth:`Injector.resolve` results. """
@@ -31,7 +35,8 @@ class _ProviderCache(dict):
         self.injector = injector
 
     def __missing__(self, func):
-        return list(self.injector._resolve(func).items())
+        self[func] = value = list(self.injector._resolve(func).items())
+        return value
 
 
 def _unwrap(func):
@@ -53,7 +58,7 @@ def _make_null_resolver(name, provider):
 
 class Injector(object):
     def __init__(self):
-        self.__cache = {}
+        self.__cache = _ProviderCache(self)
         self._resolvers = {}
         self._never_inject = set('self')
 
@@ -137,9 +142,8 @@ class Injector(object):
 
         return decorator
 
-    def _inspect(self, func):
-        """ Return a list of (name, InjectionPoint) tuples for the provided callable. """
-
+    def inspect(self, func):
+        """ Return a dict that maps parameter names to injection points for the provided callable. """
         func = _unwrap(func)
 
         if py32:
@@ -148,9 +152,11 @@ class Injector(object):
             args, varargs, keywords, defaults = inspect.getargspec(func)
             kwonlyargs, kwonlydefaults, annotations = [], {}, {}
 
+        defaults = defaults or ()
+
         injection_points = {}
 
-        for arg in args[len(args) - len(defaults):]:
+        for arg in args[:len(args) - len(defaults or [])]:
             if arg not in self._never_inject:
                 injection_points[arg] = _InjectionPoint(arg)
 
@@ -166,7 +172,7 @@ class Injector(object):
             if isinstance(value, _InjectionPoint):
                 injection_points[arg] = value
 
-        return list(injection_points.items())
+        return injection_points
 
     def _resolve(self, func):
         """ Given a callable, return a dict that maps argument names to provider callables. The providers are
@@ -174,9 +180,9 @@ class Injector(object):
 
             This is called by __ProviderCache.__missing__ and should not be used in other situations.
         """
-        results = []
-        for arg, ip in self._inspect(func):
-            results.append((arg, self._prime(arg.name, ip.parameters, ip.config)))
+        results = {}
+        for arg, ip in self.inspect(func).items():
+            results[arg] = self._prime(ip.name, ip.parameters, ip.config)
         return results
 
     def _prime(self, name, parameters=None, config=None):
@@ -220,7 +226,7 @@ class Injector(object):
         cache = self.__cache  # Avoid dot lookup in hot path
 
         # Skip wrapping for functions with no injection points
-        if not self._inspect(func):
+        if not self.inspect(func):
             return func
 
         @functools.wraps(func)
@@ -245,14 +251,14 @@ class Plugin(Injector):
         from bottle import request, response
 
         self.app = app
-        self.add_dependency('injector', self)
-        self.add_dependency('config', app.config)
-        self.add_dependency('app', app)
-        self.add_dependency('request', request, alias=['req', 'rq'])
-        self.add_dependency('response', response, alias=['res', 'rs'])
+        self.add_value('injector', self)
+        self.add_value('config', app.config)
+        self.add_value('app', app)
+        self.add_value('request', request, alias=['req', 'rq'])
+        self.add_value('response', response, alias=['res', 'rs'])
 
     def apply(self, callback, route):
-        if self._inspect(callback):
+        if self.inspect(callback):
             return self.wrap(callback)
         return callback
 
