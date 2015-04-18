@@ -13,7 +13,7 @@ with open(os.path.join(here, 'CHANGES.rst')) as f:
 with open(os.path.join(here, 'bottle_inject.py')) as f:
     for line in f:
         if line.startswith("__version__"):
-            VERSION = line.strip().split('"')[-1]
+            VERSION = line.strip().split('"')[-2]
             break
     else:
         raise RuntimeError("Could not find version string in module file.")
