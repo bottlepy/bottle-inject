@@ -79,13 +79,13 @@ The plugin comes with a set pre-defined providers. You can use them right away, 
 =================  =========================  =====  ===============================================
 Injection Points   Type                       Scope  Description
 =================  =========================  =====  ===============================================
-request, req, rq   :class:`bottle.Request`    local
-response, res, rs  :class:`bottle.Request`    local
-injector           :class:`Injector`          app    The injector itself. Can be used for runtime
+request, req, rq   `bottle.Request`           local
+response, res, rs  `bottle.Request`           local
+injector           `Injector`                 app    The injector itself. Can be used for runtime
                                                      inspection if injectable values, e.g. by other
                                                      plugins.
-params             :class:`bottle.FormsDict`  local  Not implenented.
-param[name]        :class:`str`               local  Not implenented.
+params             `bottle.FormsDict`         local  Not implenented.
+param[name]        `str`                      local  Not implenented.
 =================  =========================  =====  ===============================================
 
 What is "Dependency Injection"?
@@ -93,7 +93,7 @@ What is "Dependency Injection"?
 
 The term "Dependency Injection" is just a fancy name for a simple concept: The *caller* of a piece of code should *provide* all *depnendencies* the code needs to run. In other words: A function or object should not need to *reach out*, but be *provided* with everything it needs.
 
-A small example probably helps best. The following code does **not* follow dependency injection paradigm::
+A small example probably helps best. The following code does *not* follow dependency injection paradigm::
 
     db = my_database_connection.cursor()
 
