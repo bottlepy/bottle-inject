@@ -237,6 +237,7 @@ class Injector(object):
                     ka[key] = producer()
             return func(*a, **ka)
 
+        wrapper.__injector__ = self
         return wrapper
 
 
