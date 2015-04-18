@@ -15,15 +15,15 @@ The Bottle framework already does dependency injection in some regard: The URL p
         row = db.execute('SELECT quote FROM quotes ORDER BY RANDOM() LIMIT 1').fetchone()
         return row['quote']
 
-The first two lines are nothing new. We just create a bottle application and install this plugin to it. The next block is more interesting. Similar to how bottle binds handler functions to URL paths, the injector binds providers to injection points. In this case, we bind the provider 'get_db_handle' to the injection point named 'db'. Whenver a function is called through our injector and has an argument with the same name, it recieves a fresh database cursor from our provider. You can see that in the next few lines. Because all handler callbacks are managed by our injector plugin, you just need to accept a 'db' argument and it is automatically injected for us by the plugin. If you define a route that does not accept a 'db' argument, then nothing happens. No database curser is ever created for that route.
+The first two lines are nothing new. We just create a bottle application and install this plugin to it. The next block is more interesting. Similar to how bottle binds handler functions to URL paths, the injector binds providers to injection points. In this case, we bind the provider 'get_db_handle' to the injection point named 'db'. Whenver a function is called through our injector and has an argument with the same name, it recieves a fresh database cursor from our provider. You can see that in the next few lines. Because all handler callbacks are managed by our injector plugin, you just need to accept a 'db' argument and it is automatically injected for us by the plugin. If you define a route that does not accept a 'db' argument, then nothing happens. No database cursor is ever created for that route.
 
 That little example shows the benefits of dependency injection very well:
 
-  * You can unit-test the 'random_quote()' function directly by passing it a fake- or test-database object. No need to set-up the whole application just for testing.
-  * No global variables or global state used. The function can be used again in a different context without hassle.
-  * You don't have to import `get_db_handle` into every module that defines bottle application routes.
-  * You can change the implementation of 'get_db_handle' and it affects every route of your application. No need to search/replace your codebase.
-  * Less typing. Be lazy where it counts.
+* You can unit-test the 'random_quote()' function directly by passing it a fake- or test-database object. No need to set-up the whole application just for testing.
+* No global variables or global state used. The function can be used again in a different context without hassle.
+* You don't have to import `get_db_handle` into every module that defines bottle application routes.
+* You can change the implementation of 'get_db_handle' and it affects every route of your application. No need to search/replace your codebase.
+* Less typing. Be lazy where it counts.
 
 Advanced usage
 ==============
