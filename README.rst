@@ -80,7 +80,7 @@ The plugin comes with a set pre-defined providers. You can use them right away, 
 Injection Points   Type                       Scope  Description
 =================  =========================  =====  ===============================================
 request, req, rq   `bottle.Request`           local
-response, res, rs  `bottle.Request`           local
+response, res, rs  `bottle.Response`          local
 injector           `Injector`                 app    The injector itself. Can be used for runtime
                                                      inspection if injectable values, e.g. by other
                                                      plugins.
