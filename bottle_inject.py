@@ -153,6 +153,7 @@ class Injector(object):
             kwonlyargs, kwonlydefaults, annotations = [], {}, {}
 
         defaults = defaults or ()
+        kwonlydefaults = kwonlydefaults or {}
 
         injection_points = {}
 
