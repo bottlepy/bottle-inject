@@ -4,7 +4,7 @@ Bottle Dependency Injection
 The Bottle framework already does dependency injection in some regard: The URL parameters of your routes are injected into your handler functions as keyword arguments. Some other Plugins (actually, most plugins) do it, too: They inject database connections, authentication contexts, session objects and much more. This Plugin makes the concept available to you without the need to write a new plugin for every single dependency you want to inject. It also can change the way you use Bottle and write applications in a funcamental way, if you let it. If done right, dependency injection can reduce the complexity and increase testability and readability of your application a lot. But let us start easy, with a simple example::
 
     app = Bottle()
-    injector = app.install('bottle.ext.inject:Plugin')
+    injector = app.install(bottle.ext.inject.Plugin())
 
     @injector.provider('db')
     def get_db_handle():
