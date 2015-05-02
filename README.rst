@@ -82,7 +82,7 @@ Injection Points   Type                       Scope  Description
 request, req, rq   `bottle.Request`           local
 response, res, rs  `bottle.Response`          local
 injector           `Injector`                 app    The injector itself. Can be used for runtime
-                                                     inspection if injectable values, e.g. by other
+                                                     inspection of injectable values, e.g. by other
                                                      plugins.
 params             `bottle.FormsDict`         local  Not implenented.
 param[name]        `str`                      local  Not implenented.
