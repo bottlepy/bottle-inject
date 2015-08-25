@@ -27,7 +27,7 @@ extra = {
 	'coverage',
     ],
     'test_suite': 'nose.collector',
-    'setup_requires': ['nose>=1.0']
+    'setup_requires': ['wheel', 'nose>=1.0']
 }
 
 if sys.version_info >= (3,):
