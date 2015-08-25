@@ -1,6 +1,6 @@
 import functools
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 __all__ = "Plugin Injector inject".split()
 
 import inspect
@@ -17,15 +17,16 @@ class InjectError(RuntimeError):
 class _InjectionPoint(object):
     """ The object returned by :func:`inject`. """
 
-    def __init__(self, name, parameters=None, config=None):
+    def __init__(self, name, config=None, implicit=False):
         self.name = name
-        self.parameters = parameters or ()
         self.config = config or {}
+        self.implicit = implicit
 
     def __eq__(self, other):
         if isinstance(other, _InjectionPoint):
             return self.__dict__ == other.__dict__
         return False
+
 
 class _ProviderCache(dict):
     """ A self-filling cache for :meth:`Injector.resolve` results. """
@@ -60,7 +61,7 @@ class Injector(object):
     def __init__(self):
         self.__cache = _ProviderCache(self)
         self._resolvers = {}
-        self._never_inject = set('self')
+        self._never_inject = set(('self', ))
 
     def add_value(self, name, value, alias=()):
         """ Register a dependency value.
@@ -102,7 +103,6 @@ class Injector(object):
         """
         self._resolvers[name] = func
         for name in alias:
-            assert isinstance(name, str)
             self._resolvers[name] = func
         self.__cache.clear()
 
@@ -134,7 +134,6 @@ class Injector(object):
         :param alias: A list of alias names for this injection point.
         :return: Decorator that registers the resolver to the injector.
         """
-        assert isinstance(name, str)
 
         def decorator(func):
             self.add_resolver(name, func, alias=alias)
@@ -157,9 +156,11 @@ class Injector(object):
 
         injection_points = {}
 
+        # Positional arguments without default value are potential injection points,
+        # but marked as 'implicit'.
         for arg in args[:len(args) - len(defaults or [])]:
             if arg not in self._never_inject:
-                injection_points[arg] = _InjectionPoint(arg)
+                injection_points[arg] = _InjectionPoint(arg, implicit=True)
 
         for arg, value in zip(args[::-1], defaults[::-1]):
             if isinstance(value, _InjectionPoint):
@@ -183,30 +184,35 @@ class Injector(object):
         """
         results = {}
         for arg, ip in self.inspect(func).items():
-            results[arg] = self._prime(ip.name, ip.parameters, ip.config)
+            results[arg] = self._prime(ip)
         return results
 
-    def _prime(self, name, parameters=None, config=None):
-        """ Prepare a named resolver with the specified parameters and configuration.
+    def _prime(self, ip):
+        """ Prepare a named resolver for a given injection point.
 
             Internal use only. See _resolve()
         """
         try:
-            provider_resolver = self._resolvers[name]
+            provider_resolver = self._resolvers[ip.name]
         except KeyError:
-            raise InjectError("Could not resolve provider for injection point %r" % name)
+            err = InjectError("Could not resolve provider for injection point %r" % ip.name)
+            if not ip.implicit:
+                raise err
+            def fail_if_injected():
+                raise err
+            return fail_if_injected
 
-        provider = self.call_inject(provider_resolver, *parameters, **config)
+        provider = self.call_inject(provider_resolver, **ip.config)
         return self.wrap(provider)
 
-    def call_inject(self, func, *a, **ka):
+    def call_inject(self, func, **ka):
         """ Call a function and inject missing dependencies. If you want to call the same function multiple times,
             consider :method:`wrap`ing it.
         """
         for key, producer in self.__cache[func]:
             if key not in ka:
                 ka[key] = producer()
-        return func(*a, **ka)
+        return func(**ka)
 
     def wrap(self, func):
         """ Turn a function into a dependency managed callable.
@@ -231,12 +237,12 @@ class Injector(object):
             return func
 
         @functools.wraps(func)
-        def wrapper(*a, **ka):
+        def wrapper(**ka):
             # PERF: Inlined call_inject call. Keep in sync with the implementation above.
             for key, producer in cache[func]:
                 if key not in ka:
                     ka[key] = producer()
-            return func(*a, **ka)
+            return func(**ka)
 
         wrapper.__injector__ = self
         return wrapper
@@ -265,7 +271,7 @@ class Plugin(Injector):
         return callback
 
 
-def inject(name, *args, **kwargs):
+def inject(name, **kwargs):
     """ Mark an argument in a function signature as an injection point.
 
         The return value can be used as an annotation (Python 3) or default value (Python 2) for parameters that should
@@ -273,14 +279,13 @@ def inject(name, *args, **kwargs):
 
     Usage::
         def my_func(a: inject('name'),
-                    b: inject('name', 'opt', conf="val") # Resolvers only.
+                    b: inject('name', conf="val") # Resolvers only.
             ):
             pass
 
     :param name: Name of the dependency to inject.
-    :param args: Additional arguments passed to the dependency provider resolver.
     :param kwargs: Additional keyword arguments passed to the dependency provider resolver.
     :return:
     """
-    return _InjectionPoint(name, args, kwargs)
+    return _InjectionPoint(name, config=kwargs)
 

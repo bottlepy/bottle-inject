@@ -22,7 +22,12 @@ extra = {
     'install_requires': [
         'distribute',
         'bottle>=0.11',
-    ]
+    ],
+    'tests_require': [
+	'coverage',
+    ],
+    'test_suite': 'nose.collector',
+    'setup_requires': ['nose>=1.0']
 }
 
 if sys.version_info >= (3,):

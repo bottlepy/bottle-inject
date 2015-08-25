@@ -45,7 +45,7 @@ TODO: Describe the inject() function and how it is used.
 ::
 
     def my_func(
-        db                 # Positional arguments are always recognized as an injection point with the same name.
+        db                 # Positional arguments are always recognized as injection points with the same name.
         a = 'value'        # Keyword arguments with default values are not recognized.
         b = inject('db')   # Here we explicitly define an injection point. The name of the argument is no longer
                            #  important.
@@ -56,25 +56,27 @@ TODO: Describe the inject() function and how it is used.
 ::
 
     # Python 2
-    def func(name = inject('param', 'name'),
-             file = inject('file', 'upload')):
+    def func(name = inject('param', key='value'),
+             file = inject('file', field='upload')):
         pass
 
     # Python 3
-    def func(name: inject('param', 'name'),
-             file: inject('file', 'upload')):
+    def func(name: inject('param', key='name'),
+             file: inject('file', field='upload')):
         pass
+
+TODO: Describe the difference between implicit (non-annotated) and explicit (annotated with ``inject()``) injection points. In short: If a resolver is missing, explicit injection points will fail immediately while implcit injection points only fail if they are actually resolved.
 
 TODO: You can disable the injection into unannotized arguments (maybe).
 
 Recursive Dependency Injection
 ------------------------------
-TODO: Describe recursive injection (injecting stuff into providers and resolvers).
+TODO: Describe recursive injection (injecting stuff into providers and resolvers), which already works.
 
 Default injection points
 ------------------------
 
-The plugin comes with a set pre-defined providers. You can use them right away, or unregister them if you don't want them.
+The plugin comes with a set of pre-defined providers. You can use them right away, or unregister them if you don't want them.
 
 =================  =========================  =====  ===============================================
 Injection Points   Type                       Scope  Description
