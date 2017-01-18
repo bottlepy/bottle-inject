@@ -8,14 +8,15 @@ The Bottle framework already does dependency injection in some regard: The URL p
 
     @injector.provider('db')
     def get_db_handle():
-        return my_database_connection.cursor()
+        return database_connection_pool.get_connection()
 
     @app.route('/random_quote')
     def random_quote(db):
-        row = db.execute('SELECT quote FROM quotes ORDER BY RANDOM() LIMIT 1').fetchone()
+        with db.cursor() as cursor:
+            row = cursor.execute('SELECT quote FROM quotes ORDER BY RANDOM() LIMIT 1').fetchone()
         return row['quote']
 
-The first two lines are nothing new. We just create a bottle application and install this plugin to it. The next block is more interesting. Similar to how bottle binds handler functions to URL paths, the injector binds providers to injection points. In this case, we bind the provider 'get_db_handle' to the injection point named 'db'. Whenver a function is called through our injector and has an argument with the same name, it recieves a fresh database cursor from our provider. You can see that in the next few lines. Because all handler callbacks are managed by our injector plugin, you just need to accept a 'db' argument and it is automatically injected for us by the plugin. If you define a route that does not accept a 'db' argument, then nothing happens. No database cursor is ever created for that route.
+The first two lines are nothing new. We just create a bottle application and install this plugin to it. The next block is more interesting. Similar to how bottle binds handler functions to URL paths, the injector binds providers to injection points. In this case, we bind the provider 'get_db_handle' to the injection point named 'db'. Whenever a function is called through our injector and has an argument with the same name, it recieves a fresh database connection from our provider. You can see that in the next few lines. Because all handler callbacks are managed by our injector plugin, you just need to accept a 'db' argument and it is automatically injected for us by the plugin. If you define a route that does not accept a 'db' argument, then nothing happens. No database connection is ever created for that route.
 
 That little example shows the benefits of dependency injection very well:
 
@@ -25,13 +26,31 @@ That little example shows the benefits of dependency injection very well:
 * You can change the implementation of 'get_db_handle' and it affects every route of your application. No need to search/replace your codebase.
 * Less typing. Be lazy where it counts.
 
+Usage without bottle
+--------------------
+
+This library does not depend on bottle and can be used without it:
+
+    from bottle_inject import Injector
+    injector = Injector()
+    
+    @injector.provider('db')
+    def get_db_handle():
+        return database_connection_pool.get_connection()
+
+    @injector.wrap
+    def random_quote(db):
+        with db.cursor() as cursor:
+            row = cursor.execute('SELECT quote FROM quotes ORDER BY RANDOM() LIMIT 1').fetchone()
+        return row['quote']
+
 Advanced usage
 ==============
 
-Values, Providers and Resolvers
+Dependencies, Providers and Resolvers
 -------------------------------
 
-The dependency value is re-used for every injection and treated as a singleton.
+The *dependency* is re-used for every injection and treated as a singleton.
 
 A *provider* returns the requested dependency when called. The provider is called with no arguments every time the dependency is needed.
 
@@ -90,10 +109,35 @@ params             `bottle.FormsDict`         local  Not implenented.
 param[name]        `str`                      local  Not implenented.
 =================  =========================  =====  ===============================================
 
+Lifecycle of injected values
+----------------------------
+
+TODO: Explain that the injection framework does not close objects returned by providers. If you want to inject values that need to be closed after usage, either close them explicitly in your code, or inject a context manager instead. Example for an SQLAlchemy session::
+
+    @injector.provider('db')
+    @contextmanager
+    def session_scope():
+        session = Session()
+        try:
+            yield session
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    @app.route('/random_quote')
+    def random_quote(db):
+        with db as session:
+            quote = session.query(models.Quote)...
+        return quote.text
+
+
 What is "Dependency Injection"?
 ===============================
 
-The term "Dependency Injection" is just a fancy name for a simple concept: The *caller* of a piece of code should *provide* all *depnendencies* the code needs to run. In other words: A function or object should not need to *reach out*, but be *provided* with everything it needs.
+The term "Dependency Injection" is just a fancy name for a simple concept: The *caller* of a piece of code should *provide* all *dependencies* the code needs to run. In other words: A function or object should not need to *reach out*, but be *provided* with everything it needs.
 
 A small example probably helps best. The following code does *not* follow dependency injection paradigm::
 
@@ -126,7 +170,7 @@ Injection Point
     A place to inject dependencies into. This plugin injects into function call arguments most of the time.
 
 Consumer
-    A function or callable that defines dependencies in its call signature so that the injector can inject them.
+    A function or callable that has injection points in its call signature so that the injector can inject dependencies.
 
 Dependency
     An object or resource that can be injected.
@@ -135,4 +179,4 @@ Provider
     A function or callable that creates dependencies on demand, or otherwise provides the dependencies for when they are needed.
 
 Resolver
-    A function or callable that creates individual providers based on injection-point specific configuration. (Yes, you could call it a dependency-provoder-provider but that sounds aweful)
+    A function or callable that creates individual providers based on injection-point specific configuration. (Yes, you could call it a dependency-provoder-provider but that sounds weird)

@@ -1,13 +1,20 @@
 import functools
+import inspect
+import sys
 
 __version__ = "0.1.3"
 __all__ = "Plugin Injector inject".split()
 
-import inspect
-import sys
-
-
 py32 = sys.version_info >= (3, 2, 0)
+
+
+def _makelist(data):
+    if isinstance(data, (tuple, list, set)):
+        return list(data)
+    elif data:
+        return [data]
+    else:
+        return []
 
 
 class InjectError(RuntimeError):
@@ -49,7 +56,8 @@ def _unwrap(func):
 
 
 def _make_null_resolver(name, provider):
-    msg = "The dependency provider for %r does not accept configuration (it is not a resolver)." % name
+    msg = "The dependency provider for %r does not accept configuration (it is"\
+          " not a resolver)." % name
     def null_resolver(*a, **ka):
         if a or ka:
             raise InjectError(msg)
@@ -64,61 +72,75 @@ class Injector(object):
         self._never_inject = set(('self', ))
 
     def add_value(self, name, value, alias=()):
-        """ Register a dependency value.
+        """
+            Register a dependency value.
 
-        The dependency value is re-used for every injection and treated as a singleton.
+            The dependency value is re-used for every injection and treated as a
+            singleton.
 
-        :param name: Name of the injection point.
-        :param value: The singleton to provide.
-        :param alias: A list of alternative injection points.
-        :return: None
+            :param name: Name of the injection point.
+            :param value: The singleton to provide.
+            :param alias: A list of alternative injection points.
+            :return: None
         """
         self.add_provider(name, lambda: value, alias=alias)
 
     def add_provider(self, name, func, alias=()):
-        """ Register a dependency provider.
+        """ 
+            Register a dependency provider.
 
-        A *provider* returns the requested dependency when called. The provider is called with no arguments
-        every time the dependency is needed. It is possible to inject other dependencies into the call signature of a
-        provider.
+            A *provider* returns the requested dependency when called. The
+            provider is called with no arguments every time the dependency is
+            needed. It is possible to inject other dependencies into the call
+            signature of a provider.
 
-        :param name: Name of the injection point.
-        :param func: The provider callable.
-        :param alias: A list of alternative injection points.
-        :return: None
+            :param name: Name of the injection point.
+            :param func: The provider callable.
+            :param alias: A list of alternative injection points.
+            :return: None
         """
         self.add_resolver(name, _make_null_resolver(name, func), alias=alias)
 
     def add_resolver(self, name, func, alias=()):
-        """ Register a dependency provider resolver.
+        """ 
+            Register a dependency provider resolver.
 
-        A *resolver* returns a cache-able *provider* and may accept injection-point specific configuration. The resolver
-        is usually called only once per injection point and the return value is cached. It must return a (callable)
-        provider. It is possible to inject other dependencies into the call signature of a resolver.
+            A *resolver* returns a cache-able *provider* and may accept
+            injection-point specific configuration. The resolver is usually
+            called only once per injection point and the return value is cached.
+            It must return a (callable) provider. It is possible to inject other
+            dependencies into the call signature of a resolver.
 
-        :param name: Name of the injection point.
-        :param func: The resolver callable.
-        :param alias: A list of alternative injection points.
-        :return: None
+            :param name: Name of the injection point.
+            :param func: The resolver callable.
+            :param alias: A list of alternative injection points.
+            :return: None
         """
         self._resolvers[name] = func
-        for name in alias:
+        for name in _makelist(alias):
             self._resolvers[name] = func
         self.__cache.clear()
 
     def remove(self, name):
-        """ Remove any dependency, provider or resolver bound to the named injection point.
-        :param name: Name of the injection point to clear.
-        :return: None
+        """ 
+            Remove any dependency, provider or resolver bound to the named
+            injection point.
+            
+            :param name: Name of the injection point to clear.
+            :return: None
         """
         if self._resolvers.pop(name):
             self.__cache.clear()
 
     def provider(self, name, alias=()):
-        """ Decorator to register a dependency provider. See :func:`add_provider` for a description.
-        :param name: Name of the injection point.
-        :param alias: A list of alias names for this injection point.
-        :return: Decorator that registers the provider function to the injector.
+        """ 
+            Decorator to register a dependency provider.
+            See :func:`add_provider` for a description.
+            
+            :param name: Name of the injection point.
+            :param alias: A list of alias names for this injection point.
+            :return: Decorator that registers the provider function to the
+                     injector.
         """
         assert isinstance(name, str)
 
@@ -129,10 +151,13 @@ class Injector(object):
         return decorator
 
     def resolver(self, name, alias=()):
-        """ Decorator to register a dependency provider resolver. See :func:`add_resolver` for a description.
-        :param name: Name of the injection point.
-        :param alias: A list of alias names for this injection point.
-        :return: Decorator that registers the resolver to the injector.
+        """
+            Decorator to register a dependency provider resolver. See
+            :func:`add_resolver` for a description.
+            
+            :param name: Name of the injection point.
+            :param alias: A list of alias names for this injection point.
+            :return: Decorator that registers the resolver to the injector.
         """
 
         def decorator(func):
@@ -142,7 +167,10 @@ class Injector(object):
         return decorator
 
     def inspect(self, func):
-        """ Return a dict that maps parameter names to injection points for the provided callable. """
+        """ 
+            Return a dict that maps parameter names to injection points for the
+            provided callable.
+        """
         func = _unwrap(func)
 
         if py32:
@@ -177,10 +205,13 @@ class Injector(object):
         return injection_points
 
     def _resolve(self, func):
-        """ Given a callable, return a dict that maps argument names to provider callables. The providers are
-            resolved and wrapped already and should be called with no arguments to receive the injectable.
+        """
+            Given a callable, return a dict that maps argument names to provider
+            callables. The providers are resolved and wrapped already and should
+            be called with no arguments to receive the injectable.
 
-            This is called by __ProviderCache.__missing__ and should not be used in other situations.
+            This is called by __ProviderCache.__missing__ and should not be used
+            in other situations.
         """
         results = {}
         for arg, ip in self.inspect(func).items():
@@ -188,14 +219,15 @@ class Injector(object):
         return results
 
     def _prime(self, ip):
-        """ Prepare a named resolver for a given injection point.
+        """
+            Prepare a named resolver for a given injection point.
 
             Internal use only. See _resolve()
         """
         try:
             provider_resolver = self._resolvers[ip.name]
         except KeyError:
-            err = InjectError("Could not resolve provider for injection point %r" % ip.name)
+            err = InjectError("No provider for injection point %r" % ip.name)
             if not ip.implicit:
                 raise err
             def fail_if_injected():
@@ -206,8 +238,9 @@ class Injector(object):
         return self.wrap(provider)
 
     def call_inject(self, func, **ka):
-        """ Call a function and inject missing dependencies. If you want to call the same function multiple times,
-            consider :method:`wrap`ing it.
+        """
+            Call a function and inject missing dependencies. If you want to call
+            the same function multiple times, consider :method:`wrap`ing it.
         """
         for key, producer in self.__cache[func]:
             if key not in ka:
@@ -215,20 +248,23 @@ class Injector(object):
         return func(**ka)
 
     def wrap(self, func):
-        """ Turn a function into a dependency managed callable.
+        """
+            Turn a function into a dependency managed callable.
 
-        Usage::
-            @injector.wrap
-            def my_func(db: inject('database')):
-                pass
+            Usage::
+                @injector.wrap
+                def my_func(db: inject('database')):
+                    pass
 
-        or::
-            managed_callable = injector.wrap(my_callable)
+            or::
+                managed_callable = injector.wrap(my_callable)
 
-        :param func: A callable with at least one injectable parameter.
-        :return: A wrapped function that calls :method:`call_inject` internally.
+            :param func: A callable with at least one injectable parameter.
+            :return: A wrapped function that calls :method:`call_inject`
+                     internally.
 
-        If the provided function does not accept any injectable parameters, it is returned unchanged.
+            If the provided function does not accept any injectable parameters,
+            it is returned unchanged.
         """
         cache = self.__cache  # Avoid dot lookup in hot path
 
@@ -238,7 +274,8 @@ class Injector(object):
 
         @functools.wraps(func)
         def wrapper(**ka):
-            # PERF: Inlined call_inject call. Keep in sync with the implementation above.
+            # PERF: Inlined call_inject call.
+            # Keep in sync with the implementation above.
             for key, producer in cache[func]:
                 if key not in ka:
                     ka[key] = producer()
@@ -272,10 +309,12 @@ class Plugin(Injector):
 
 
 def inject(name, **kwargs):
-    """ Mark an argument in a function signature as an injection point.
+    """
+        Mark an argument in a function signature as an injection point.
 
-        The return value can be used as an annotation (Python 3) or default value (Python 2) for parameters that should
-        be replaced by dependency injection.
+        The return value can be used as an annotation (Python 3) or default
+        value (Python 2) for parameters that should be recognized by dependency
+        injection.
 
     Usage::
         def my_func(a: inject('name'),
@@ -284,7 +323,8 @@ def inject(name, **kwargs):
             pass
 
     :param name: Name of the dependency to inject.
-    :param kwargs: Additional keyword arguments passed to the dependency provider resolver.
+    :param kwargs: Additional keyword arguments passed to the dependency
+                   provider resolver.
     :return:
     """
     return _InjectionPoint(name, config=kwargs)
