@@ -29,7 +29,7 @@ That little example shows the benefits of dependency injection very well:
 Usage without bottle
 --------------------
 
-This library does not depend on bottle and can be used without it:
+This library does not depend on bottle and can be used without it::
 
     from bottle_inject import Injector
     injector = Injector()
